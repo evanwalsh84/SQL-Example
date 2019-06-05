@@ -1,0 +1,117 @@
+DROP TABLE Enrolls;
+DROP TABLE Teaches;
+DROP TABLE Student;
+DROP TABLE Instructor;
+DROP TABLE Class;
+/* Creates a table to hold enrolled students */
+CREATE TABLE Student
+	(student_id int,
+	 student_name varchar(30),
+	 major varchar(30),
+	 gpa decimal(3,2),
+	 PRIMARY KEY(student_id));
+/* Creates a table to hold offered courses */
+CREATE TABLE Class
+	(schedule_num int,
+	 semester varchar(30),
+	 course_name varchar(30),
+	 course_number varchar(30),
+	 credit int,
+	 department varchar(30),
+	 meeting_time varchar(30),
+	 meeting_place varchar(30),
+	 class_size_limit int,
+	 PRIMARY KEY(schedule_num, semester));
+/* Creates a table to hold instructors */
+CREATE TABLE Instructor	
+	(name varchar(30),
+	 department varchar(30),
+	 office varchar(30),
+	 title varchar(15),
+	 PRIMARY KEY(name));
+/* Creates a table to connect enrolled students to the courses they are in. */
+CREATE TABLE Enrolls
+	(schedule_num int,
+	 semester varchar(30),
+	 grade character(2),
+	 FOREIGN KEY(student_id) int REFERENCES Student(student_id),
+	 FOREIGN KEY(schedule_num, semester) REFERENCES Class(schedule_num, semester));
+/* Creates a table to connect Instructors to the Courses they teach.  */
+CREATE TABLE Teaches
+	((name varchar(30)) REFERENCES Instructor(name),
+	 schedule_num int,
+	 semester varchar(30),
+	 FOREIGN(schedule_num, semester) REFERENCES Class(schedule_num,semester));
+/* Inserts values into the student table. */
+INSERT INTO Student values (01, 'Evan Walsh', 'Computer Science', 4.0);
+INSERT INTO Student values (02, 'John Smith', 'Philosiphy', 2.8);
+INSERT INTO Student values (03, 'Stephen Smith', 'Sociology', 3.6);
+/* Inserts values into the Class table. */
+insert into Class values (005, 'Fall13', 'Systems Programming', 'CSCI3100', 4, 'Computer Science', 'MWF 4:00-4:50', 'Room 500', 100);
+insert into Class values (004, 'Fall12', 'Data Mining', 'CSCI4300', 4, 'Computer Science', 'MWF 3:00-3:50', 'Room 300', 100);
+insert into Class values (001, 'Spring13', 'Database Design', 'CSCI3700', 4, 'Computer Science', 'MWF 1:00-1:50', 'Room 100', 100);
+insert into Class values (002, 'Spring13', 'Database Management Systems', 'CSCI3200', 4, 'Computer Science', 'MWF 8:00-8:50', 'Room 200', 100);
+insert into Class values (003, 'Fall13', 'History of Philosiphers', 'PHIL3200', 4, 'Philosiphy', 'MWF 10:00-10:50', 'Room 400', 100);
+/* inserts values into the Instructor table */
+insert into Instructor values('Rick jones', 'Computer Science', 'OFF 001', 'Dr.');
+insert into Instructor values('Cameron Smith', 'Computer Science', 'OFF 002', 'Dr.');
+insert into Instructor values('Sean Solley', 'Sociology', 'OFF 003', 'Dr.');
+insert into Instructor values('Hannah Long', 'Computer Science', 'OFF 004', 'Dr.');
+insert into Instructor values('Ana Jones', 'Computer Science', 'OFF 005', 'Dr.');
+/* inserts values into the Enrolls table */
+insert into Enrolls values(001, 'Spring13', 'A');
+insert into Enrolls values(002, 'Spring13', 'C');
+insert into Enrolls values(003, 'Fall13', 'B');
+insert into Enrolls values(005, 'Fall13', 'A');
+insert into Enrolls values(001, 'Spring13', 'A');
+insert into Enrolls values(004, 'Fall12', 'C');
+/* inserts values into the Teaches table */
+insert into Teaches values('Rick jones', 001, 'Spring13');
+insert into Teaches values('Cameron Smith', 002, 'Spring13');
+insert into Teaches values('Sean Solley', 003, 'Fall13');
+insert into Teaches values('Rick jones', 005, 'Fall13');
+insert into Teaches values('Ana Jones', 004, 'Fall12');
+
+COMMIT;
+
+SELECT student_id, student_name from student where student_id 
+NOT IN (Select distinct student_id 
+FROM enrolls
+LEFT OUTER JOIN Class on enrolls.schedule_num = Class.schedule_num and enrolls.semester = Class.semester where department = 'CS');
+
+SELECT student.student_id, student_name FROM student
+LEFT OUTER JOIN enrolls on student.student_id = enrolls.student_id
+LEFT OUTER JOIN Class on enrolls.schedule_num = Class.schedule_num
+GROUP BY student.student_id, student_name HAVING sum(CASE WHEN department = 'CS' THEN credit ELSE 0 END) >= 6;	
+
+SELECT student.student_id, student_name, count(enrolls.student_id) 
+AS Classes_enrolled 
+FROM student
+LEFT OUTER JOIN enrolls on student.student_id = enrolls.student_id 
+GROUP BY student.student_id, student_name, enrolls.student_id  
+ORDER BY student.student_id;
+
+SELECT major 
+FROM (select major, count(student_id) 
+AS num_students 
+FROM student where gpa >= 3.0 group by major) majorCount 
+WHERE num_students = (select max(num_students) 
+FROM (select major, count(student_id) as num_students 
+FROM student where gpa >= 3.0 group by major));
+
+SELECT student.student_id, student_name
+FROM student
+INNER JOIN (
+SELECT student_id, count
+FROM (Select distinct student_id, count(student_id) as count
+FROM enrolls
+INNER JOIN (Select schedule_num, semester, department, credit
+FROM Class) joined on enrolls.schedule_num = joined.schedule_num 
+and
+enrolls.semester = joined.semester
+WHERE enrolls.semester = 'Spring13' and credit = 4 and department = 'CS'
+GROUP BY student_id)
+WHERE count = (select count(schedule_num)
+FROM Class
+WHERE credit = 4 and department = 'CS' and semester = 'Spring13'))
+update on update.student_id = student.student_id;
